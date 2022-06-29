@@ -915,11 +915,13 @@ def get_url_and_title_pytube(id, retry=True):
     video_url = "https://www.youtube.com/watch?v="+id
     try:
         yt = YouTube('https://www.youtube.com/watch?v='+id, proxies=proxy_list)
+        yt.check_availability()
     except LiveStreamError:
         logger.info(id+' is a live video')
         return get_live_video_url_and_title(id)
     except VideoUnavailable:
         logger.info(id+' is unavailable')
+        logger.info(id + ' ' + str(retry))
         return None, None
     except HTTPError as e:
         logger.info('HTTPError code '+str(e.code))
@@ -929,6 +931,7 @@ def get_url_and_title_pytube(id, retry=True):
     except:
         logger.info('Unable to get URL for '+id)
         return None, None
+
     if video_or_audio[1] == 'video':
         first_stream = yt.streams.filter(progressive=True).first()
     else:
