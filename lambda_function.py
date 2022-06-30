@@ -1133,8 +1133,8 @@ def search(event):
         video_or_audio[1] = 'video'
     next_url = None
     for i, id in enumerate(videos):
-        if playlist_channel_video != strings['video'] and (datetime.now() - startTime).total_seconds() > 8:
-            return build_response(build_cardless_speechlet_response(playlist_channel_video+" "+playlist_title+" " + strings['notworked'], None, False), sessionAttributes)
+        #if playlist_channel_video != strings['video'] and (datetime.now() - startTime).total_seconds() > 8:
+        #    return build_response(build_cardless_speechlet_response(playlist_channel_video+" "+playlist_title+" " + strings['notworked'], None, False), sessionAttributes)
         playlist['v'+str(i)] = id
         if next_url is None:
             playlist['p'] = i
