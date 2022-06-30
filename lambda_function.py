@@ -942,35 +942,12 @@ def get_url_and_title_pytube(id, retry=True):
     return first_stream.url, first_stream.title
 
 def get_url_and_title_ytdl_web(id):
-    from pytube import YouTube
-    from pytube.exceptions import LiveStreamError, VideoUnavailable
     global video_url
     video_url = "https://www.youtube.com/watch?v="+id
-    
-    # We're still going to use pytube to determine if the video is available.
-    try:
-        yt = YouTube('https://www.youtube.com/watch?v='+id)
-        yt.check_availability()
-    except LiveStreamError:
-        logger.info(id+' is a live video')
-        return get_live_video_url_and_title(id)
-    except VideoUnavailable:
-        logger.info(id+' is unavailable')
-        return None, None
-    except HTTPError as e:
-        logger.info('HTTPError code '+str(e.code))
-        return False, False
-    except:
-        logger.info('Unable to get URL for '+id)
-        return None, None
-    
-    if video_or_audio[1] == 'video':
-        # Video is not supported for now, so just return nothing.
-        first_stream = yt.streams.filter(progressive=True).first()
-    else:
-        first_stream = yt.streams.filter(only_audio=True, subtype='mp4').first()
-    
-    return 'https://' + environ['ytdl_web_address'] + '/api/dl/' + id + '?f=bestaudio&preshared=' + environ['ytdl_preshared_key'], first_stream.title
+    stream_url = 'https://' + environ['ytdl_web_address'] + '/api/dl/' + id + '?f=bestaudio&preshared=' + environ['ytdl_preshared_key']
+    stream_title = get_title(id)
+    logger.info('Playing "' + stream_title + '" - ' + stream_url)
+    return stream_url, stream_title
 
 def get_url_and_title_rapidapi(id, retry=True):
     apikey = environ['apikey']
