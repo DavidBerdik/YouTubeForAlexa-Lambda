@@ -970,7 +970,7 @@ def get_url_and_title_ytdl_web(id):
     else:
         first_stream = yt.streams.filter(only_audio=True, subtype='mp4').first()
     
-    return 'https://' + environ['ytdl_web_address'] + '/api/dl/' + id + '?f=bestaudio', first_stream.title
+    return 'https://' + environ['ytdl_web_address'] + '/api/dl/' + id + '?f=bestaudio&preshared=' + environ['ytdl_preshared_key'], first_stream.title
 
 def get_url_and_title_rapidapi(id, retry=True):
     apikey = environ['apikey']
