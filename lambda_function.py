@@ -944,7 +944,7 @@ def get_url_and_title_pytube(id, retry=True):
 def get_url_and_title_ytdl_web(id):
     global video_url
     video_url = "https://www.youtube.com/watch?v="+id
-    stream_url = 'https://' + environ['ytdl_web_address'] + '/api/dl/' + id + '?f=bestaudio&preshared=' + environ['ytdl_preshared_key']
+    stream_url = 'https://' + environ['ytdl_web_address'] + '/dl/' + id + '?f=bestaudio&preshared=' + environ['ytdl_preshared_key']
     stream_title = get_title(id)
     logger.info('Playing "' + stream_title + '" - ' + stream_url)
     return stream_url, stream_title
