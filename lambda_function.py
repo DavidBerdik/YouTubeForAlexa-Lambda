@@ -26,7 +26,7 @@ playlist_favo_name = None
 #Get Latest GitHub Version
 update = requests.get('https://api.github.com/repos/wes1993/YouTubeForAlexa/releases/latest')
 githubversion = update.json()["tag_name"]
-version = "05.06.2022"
+version = "28.09.2022"
 
 def build_speechlet_response(title, output, reprompt_text, should_end_session):
     return {
@@ -262,6 +262,7 @@ def on_intent(event):
     add_to_fav = ["AddVideoToFavoritesIntent", "AddChannelToFavoritesIntent"]
     if intent_name in search_intents:
         return search(event)
+#        return progressive_response(event)
     elif intent_name in add_to_fav:
         return add_to_favo(event)
     elif intent_name in 'AddPlaylistToFavoritesIntent':
@@ -312,6 +313,38 @@ def on_intent(event):
         return play_more_like_this(event)
     else:
         raise ValueError("Invalid intent")
+
+
+
+def progressive_response(event):
+    logger.info("progressive Reponse")
+    headers = get_headers(event)
+    reqid = event['request']['requestId']
+    logger.info(headers)
+    logger.info(reqid)
+    data = { 
+		"header":{ 
+			"requestId": reqid,
+		},
+		"directive":{ 
+			"type":"VoicePlayer.Speak",
+            "speech":"<speak>" + strings['waitloading1'] + "<break time='10s'/>" + strings['waitloading2'] + "<break time='10s'/>" + strings['waitloading3'] + "</speak>"
+            #"speech":"<speak>Test Progressive. <audio src='https://file-examples.com/storage/fe6a5406fa63112369b75a2/2017/11/file_example_MP3_700KB.mp3' /></speak>"
+		}
+		}
+#	data = {
+#        "value": text,
+#        "status": "active"
+#    }
+    url = event['context']['System']['apiEndpoint'] + '/v1/directives'
+    r = requests.post(url, headers=headers, data=json.dumps(data))
+    logger.info('progressive_response Executed')
+#    speech_output = strings['addedplaylistfavo']
+#    return build_response(build_short_speechlet_response(speech_output, should_end_session))
+    return search(event)
+
+
+
 
 
 def handle_playback(event):
@@ -862,9 +895,10 @@ def get_url_and_title_youtube_dl(id, retry=True):
 #    else:
     import youtube_dl
     logger.info('Getting youtube-dl url for https://www.youtube.com/watch?v='+id)
-    youtube_dl_properties = {
-        'cachedir' : False, 
-    }
+    youtube_dl_properties = { 'quiet' : True, 'cachedir' : '/tmp/' }
+#    youtube_dl_properties = {
+#        'cachedir' : False, 
+#    }
     if 'proxy_enabled' in environ and 'proxy' in environ and environ['proxy_enabled'].lower() == 'true':
         youtube_dl_properties['proxy'] = environ['proxy']
     try:
@@ -936,52 +970,122 @@ def get_url_and_title_pytube(id, retry=True):
     logger.info(first_stream.url)
     return first_stream.url, first_stream.title
 
+####RAPIDAPI --> DOWNLOAD VIDEO YOUTUBE Link --> https://rapidapi.com/convertisseur.mp3.video/api/download-video-youtube1####
+#def get_url_and_title_rapidapi(id, retry=True):
+#    apikey = environ['apikey']
+#    if 'pytube' in environ and 'http' in environ['pytube']:
+#        return get_url_and_title_pytube_server(id)
+#    from pytube import YouTube
+#    from pytube.exceptions import LiveStreamError, VideoUnavailable
+#    proxy_list = {}
+#    if 'proxy_enabled' in environ and 'proxy' in environ and environ['proxy_enabled'] == 'true':
+#        proxy_list = {'https': environ['proxy']}
+#    logger.info('Getting RapidAPi url for https://www.youtube.com/watch?v='+id)
+#    global video_url
+#    video_url = "https://www.youtube.com/watch?v="+id
+#    try:
+#        yt = YouTube('https://www.youtube.com/watch?v='+id, proxies=proxy_list)
+#    except LiveStreamError:
+#        logger.info(id+' is a live video')
+#        return get_live_video_url_and_title(id)
+#    except VideoUnavailable:
+#        logger.info(id+' is unavailable')
+#        return None, None
+#    except HTTPError as e:
+#        logger.info('HTTPError code '+str(e.code))
+#        if retry:
+#            return get_url_and_title_youtube_dl(id, False)
+#        return False, False
+#    except:
+#        logger.info('Unable to get URL for '+id)
+#        return None, None
+#    if video_or_audio[1] == 'video':
+#        first_stream = yt.streams.filter(progressive=True).first()
+#    else:
+#        first_stream = yt.streams.filter(only_audio=True, subtype='mp4').first()
+#        logger.info('Getting url for https://www.youtube.com/watch?v='+id)
+#        url = "https://download-video-youtube1.p.rapidapi.com/mp3/"+id
+#        logger.info(url)
+#        headers = {
+#            'x-rapidapi-key': apikey,
+#            'x-rapidapi-host': "download-video-youtube1.p.rapidapi.com"
+#            }
+#        response = requests.request("GET", url, headers=headers)
+#        json_decode = response.json()
+#        for value in json_decode['vidInfo'].values():
+#        	stream_ext = value['dloadUrl']
+#        	print(stream_ext)
+#        	break
+#    return stream_ext, first_stream.title
+####FINE YOUTUBE Video DOwnload####
+
+#def get_url_and_title_rapidapi(id, retry=True):
+#    apikey = environ['apikey']
+#    if 'pytube' in environ and 'http' in environ['pytube']:
+#        return get_url_and_title_pytube_server(id)
+#    from pytube import YouTube
+#    from pytube.exceptions import LiveStreamError, VideoUnavailable
+#    proxy_list = {}
+#    if 'proxy_enabled' in environ and 'proxy' in environ and environ['proxy_enabled'] == 'true':
+#        proxy_list = {'https': environ['proxy']}
+#    logger.info('Getting RapidAPi url for https://www.youtube.com/watch?v='+id)
+#    global video_url
+#    video_url = "https://www.youtube.com/watch?v="+id
+#    try:
+#        yt = YouTube('https://www.youtube.com/watch?v='+id, proxies=proxy_list)
+#    except LiveStreamError:
+#        logger.info(id+' is a live video')
+#        return get_live_video_url_and_title(id)
+#    except VideoUnavailable:
+#        logger.info(id+' is unavailable')
+#        return None, None
+#    except HTTPError as e:
+#        logger.info('HTTPError code '+str(e.code))
+#        if retry:
+#            return get_url_and_title_youtube_dl(id, False)
+#        return False, False
+#    except:
+#        logger.info('Unable to get URL for '+id)
+#        return None, None
+#    if video_or_audio[1] == 'video':
+#        first_stream = yt.streams.filter(progressive=True).first()
+#    else:
+#        first_stream = yt.streams.filter(only_audio=True, subtype='mp4').first()
+#        logger.info('Getting url for https://www.youtube.com/watch?v='+id)
+#        url = "https://youtube-mp3-download1.p.rapidapi.com/dl"
+#        querystring = {"id":id}
+#        logger.info(url)
+#        headers = {
+#            'x-rapidapi-key': apikey,
+#            'x-rapidapi-host': "youtube-mp3-download1.p.rapidapi.com"
+#            }
+#        response = requests.request("GET", url, headers=headers, params=querystring)
+#        json_decode = response.json()
+#        stream_ext = json_decode['link']
+#        logger.info(stream_ext)
+#    return stream_ext, first_stream.title
+
+#### Il formato del file MP3 che viene estratto non sembra essere Supportato da Alexa #####
 def get_url_and_title_rapidapi(id, retry=True):
     apikey = environ['apikey']
-    if 'pytube' in environ and 'http' in environ['pytube']:
-        return get_url_and_title_pytube_server(id)
-    from pytube import YouTube
-    from pytube.exceptions import LiveStreamError, VideoUnavailable
     proxy_list = {}
-    if 'proxy_enabled' in environ and 'proxy' in environ and environ['proxy_enabled'] == 'true':
-        proxy_list = {'https': environ['proxy']}
     logger.info('Getting RapidAPi url for https://www.youtube.com/watch?v='+id)
-    global video_url
-    video_url = "https://www.youtube.com/watch?v="+id
-    try:
-        yt = YouTube('https://www.youtube.com/watch?v='+id, proxies=proxy_list)
-    except LiveStreamError:
-        logger.info(id+' is a live video')
-        return get_live_video_url_and_title(id)
-    except VideoUnavailable:
-        logger.info(id+' is unavailable')
-        return None, None
-    except HTTPError as e:
-        logger.info('HTTPError code '+str(e.code))
-        if retry:
-            return get_url_and_title_youtube_dl(id, False)
-        return False, False
-    except:
-        logger.info('Unable to get URL for '+id)
-        return None, None
-    if video_or_audio[1] == 'video':
-        first_stream = yt.streams.filter(progressive=True).first()
-    else:
-        first_stream = yt.streams.filter(only_audio=True, subtype='mp4').first()
-        logger.info('Getting url for https://www.youtube.com/watch?v='+id)
-        url = "https://download-video-youtube1.p.rapidapi.com/mp3/"+id
-        logger.info(url)
-        headers = {
-            'x-rapidapi-key': apikey,
-            'x-rapidapi-host': "download-video-youtube1.p.rapidapi.com"
-            }
-        response = requests.request("GET", url, headers=headers)
-        json_decode = response.json()
-        for value in json_decode['vidInfo'].values():
-        	stream_ext = value['dloadUrl']
-        	print(stream_ext)
-        	break
-    return stream_ext, first_stream.title
+#    logger.info('Getting url for https://www.youtube.com/watch?v='+id)
+    url = "https://youtube-mp3-download1.p.rapidapi.com/dl"
+    querystring = {"id":id}
+    headers = {
+        'x-rapidapi-key': apikey,
+        'x-rapidapi-host': "youtube-mp3-download1.p.rapidapi.com"
+        }
+    response = requests.request("GET", url, headers=headers, params=querystring)
+    json_decode = response.json()
+    stream_ext = json_decode['link']
+    #stream_ext = "https://rr2---sn-uxaxpu5ap5-jp5s.googlevideo.com/videoplayback?expire=1662399962&ei=euEVY8ieGdnix_APjo-fiAI&ip=87.17.114.113&id=o-AGwyaiGB9fd_eN0JJwDPHm8isHq_V847ViPC6y8HJsB4&itag=140&source=youtube&requiressl=yes&mh=zG&mm=31%2C29&mn=sn-uxaxpu5ap5-jp5s%2Csn-hpa7kn7z&ms=au%2Crdu&mv=m&mvi=2&pl=24&gcr=it&initcwndbps=1213750&vprv=1&mime=audio%2Fmp4&ns=YNen02-9vsI6kSpgvIH5E1oH&gir=yes&clen=3092641&dur=190.973&lmt=1603781547785498&mt=1662378082&fvip=3&keepalive=yes&fexp=24001373%2C24007246&c=WEB&rbqsm=fr&txp=1311222&n=n2Gav5d5tLICBfz&sparams=expire%2Cei%2Cip%2Cid%2Citag%2Csource%2Crequiressl%2Cgcr%2Cvprv%2Cmime%2Cns%2Cgir%2Cclen%2Cdur%2Clmt&lsparams=mh%2Cmm%2Cmn%2Cms%2Cmv%2Cmvi%2Cpl%2Cinitcwndbps&lsig=AG3C_xAwRAIgAzdbVnJREC8b3pZQqPlTE2TO18GfLsv4BkmDDJqmfeYCIFItlwLbALLYwQI-Olsux5oHJZsX4eQxh2Th3uzllq_R&sig=AOq0QJ8wRQIgFOUUL3Ap2FPH9Tep1CtJ8NEUF93E-zLSb9xrLRZW1VMCIQDKinzkxK5AahiSn34t7JSTszqp5bcDnggsnYxh6EDbCw=="
+    first_stream = json_decode['title']
+    return stream_ext, first_stream
+#### Il formato non sembra essere Supportato #####
+
+
 
 #def get_url_and_title_pytube_server(id):
 #    params = {'id': id, 'video': video_or_audio[1]}

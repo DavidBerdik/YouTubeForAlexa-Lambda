@@ -149,6 +149,9 @@ strings_it = {
 'listerror':"Lista Youtube Favorites o permessi non presenti",
 'noplaylistplaying': "Nessuna Playlist in riproduzione",
 'updateavailable': "Aggiornamento della SKill Disponibile, Vai Su GitHub per aggiornare. ",
+'waitloading1': "Sto caricando il brano, attendi il completamento del caricamento...",
+'waitloading2': "A volte potrebbe impiegare più del previsto...",
+'waitloading3': "Ci dovremmo quasi essere...",
 }
 strings_de = {
 'welcome1':"Herzlich willkommen bei Youtube. Was kann ich für Dich tun? Sage zum Beispiel 'spiel Videos von The Beatles'.",
