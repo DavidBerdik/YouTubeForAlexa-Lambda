@@ -24,8 +24,6 @@ video_url = None
 playlist_favo_url = None
 playlist_favo_name = None
 #Get Latest GitHub Version
-update = requests.get('https://api.github.com/repos/wes1993/YouTubeForAlexa/releases/latest')
-githubversion = "05.06.2022"
 version = "05.06.2022"
 
 def build_speechlet_response(title, output, reprompt_text, should_end_session):
@@ -68,14 +66,15 @@ def build_cardless_speechlet_response(output, reprompt_text, should_end_session,
     }
 
 
-def build_audio_or_video_response(title, output, should_end_session, url, token, offsetInMilliseconds=0):
-    if video_or_audio == [True, 'video']:
+def build_audio_or_video_response(title, channel_name, output, should_end_session, url, token, offsetInMilliseconds=0):
+    '''if video_or_audio == [True, 'video']:
         return build_video_response(title, output, url)
     else:
-        return build_audio_speechlet_response(title, output, should_end_session, url, token, offsetInMilliseconds=0)
+        return build_audio_speechlet_response(title, output, should_end_session, url, token, offsetInMilliseconds=0)'''
+    return build_audio_speechlet_response(title, channel_name, output, should_end_session, url, token, offsetInMilliseconds)
 
 
-def build_audio_speechlet_response(title, output, should_end_session, url, token, offsetInMilliseconds=0):
+def build_audio_speechlet_response(title, channel_name, output, should_end_session, url, token, offsetInMilliseconds=0):
     return {
         'outputSpeech': {
             'type': 'PlainText',
@@ -94,27 +93,10 @@ def build_audio_speechlet_response(title, output, should_end_session, url, token
                     'token': str(token),
                     'url': url,
                     'offsetInMilliseconds': offsetInMilliseconds
-                }
-            }
-        }],
-        'shouldEndSession': should_end_session
-    }
-
-
-def build_cardless_audio_speechlet_response(output, should_end_session, url, token, offsetInMilliseconds=0):
-    return {
-        'outputSpeech': {
-            'type': 'PlainText',
-            'text': output
-        },
-        'directives': [{
-            'type': 'AudioPlayer.Play',
-            'playBehavior': 'REPLACE_ALL',
-            'audioItem': {
-                'stream': {
-                    'token': str(token),
-                    'url': url,
-                    'offsetInMilliseconds': offsetInMilliseconds
+                },
+                'metadata': {
+                    'title': title,
+                    'subtitle': channel_name
                 }
             }
         }],
@@ -213,10 +195,6 @@ def build_video_response(title, output, url):
 
 
 def lambda_handler(event, context):
-    if 'expires' in environ and int(datetime.strftime(datetime.now(), '%Y%m%d')) > int(environ['expires']):
-        return skill_expired()
-#    elif 'TESTYT' in environ:
-#        return test_yt_limit()
     global strings
     if event['request']['locale'][0:2] == 'fr':
         strings = strings_fr
@@ -836,22 +814,11 @@ def channel_search(query, sr, do_shuffle='0'):
         shuffle(videos)
     return videos[0:50], playlist_title
 
-
-#def get_url_and_title(id):
-#    if 'youtube_dl' in environ and (environ['youtube_dl'].lower() == 'true' or 'http' in environ['youtube_dl']):
-#        return get_url_and_title_youtube_dl(id)
-#    elif 'rapidapi' in environ and (environ['rapidapi'].lower() == 'true'):
-#        return get_url_and_title_rapidapi(id)
-#    else:
-#        return get_url_and_title_pytube(id)
-
 def get_url_and_title(id):
     if 'get_url_service' in environ and (environ['get_url_service'].lower() == 'pytube'):
         return get_url_and_title_pytube(id)
     elif 'get_url_service' in environ and (environ['get_url_service'].lower() == 'ytdl_web'):
         return get_url_and_title_ytdl_web(id)
-    elif 'get_url_service' in environ and (environ['get_url_service'].lower() == 'rapidapi'):
-        return get_url_and_title_rapidapi(id)
     else:
         return get_url_and_title_youtube_dl(id)
 
@@ -904,8 +871,6 @@ def get_url_and_title_youtube_dl(id, retry=True):
     return None, None
 
 def get_url_and_title_pytube(id, retry=True):
-#    if 'pytube' in environ and 'http' in environ['pytube']:
-#        return get_url_and_title_pytube_server(id)
     from pytube import YouTube
     from pytube.exceptions import LiveStreamError, VideoUnavailable
     proxy_list = {}
@@ -948,66 +913,6 @@ def get_url_and_title_ytdl_web(id):
     stream_title = get_title(id)
     logger.info('Playing "' + stream_title + '" - ' + stream_url)
     return stream_url, stream_title
-
-def get_url_and_title_rapidapi(id, retry=True):
-    apikey = environ['apikey']
-    if 'pytube' in environ and 'http' in environ['pytube']:
-        return get_url_and_title_pytube_server(id)
-    from pytube import YouTube
-    from pytube.exceptions import LiveStreamError, VideoUnavailable
-    proxy_list = {}
-    if 'proxy_enabled' in environ and 'proxy' in environ and environ['proxy_enabled'] == 'true':
-        proxy_list = {'https': environ['proxy']}
-    logger.info('Getting RapidAPi url for https://www.youtube.com/watch?v='+id)
-    global video_url
-    video_url = "https://www.youtube.com/watch?v="+id
-    try:
-        yt = YouTube('https://www.youtube.com/watch?v='+id, proxies=proxy_list)
-    except LiveStreamError:
-        logger.info(id+' is a live video')
-        return get_live_video_url_and_title(id)
-    except VideoUnavailable:
-        logger.info(id+' is unavailable')
-        return None, None
-    except HTTPError as e:
-        logger.info('HTTPError code '+str(e.code))
-        if retry:
-            return get_url_and_title_youtube_dl(id, False)
-        return False, False
-    except:
-        logger.info('Unable to get URL for '+id)
-        return None, None
-    if video_or_audio[1] == 'video':
-        first_stream = yt.streams.filter(progressive=True).first()
-    else:
-        first_stream = yt.streams.filter(only_audio=True, subtype='mp4').first()
-        logger.info('Getting url for https://www.youtube.com/watch?v='+id)
-        url = "https://download-video-youtube1.p.rapidapi.com/mp3/"+id
-        logger.info(url)
-        headers = {
-            'x-rapidapi-key': apikey,
-            'x-rapidapi-host': "download-video-youtube1.p.rapidapi.com"
-            }
-        response = requests.request("GET", url, headers=headers)
-        json_decode = response.json()
-        for value in json_decode['vidInfo'].values():
-        	stream_ext = value['dloadUrl']
-        	print(stream_ext)
-        	break
-    return stream_ext, first_stream.title
-
-#def get_url_and_title_pytube_server(id):
-#    params = {'id': id, 'video': video_or_audio[1]}
-#    r = requests.get(environ['pytube'], params=params)
-#    info = r.json()
-#    if info['is_live'] is True:
-#        logger.info(id+' is a live video')
-#        return get_live_video_url_and_title(id)
-#    if info['url'] is not None:
-#        return info['url'], info['title']
-#    logger.info('Unable to get URL for '+id)
-#    return False, False
-
 
 def get_live_video_url_and_title(id):
     logger.info('Live video?')
@@ -1109,6 +1014,8 @@ def search(event):
     if len(videos) == 1:
         video_or_audio[1] = 'video'
     next_url = None
+    card_title = None
+    channel_name = None
     for i, id in enumerate(videos):
         #if playlist_channel_video != strings['video'] and (datetime.now() - startTime).total_seconds() > 8:
         #    return build_response(build_cardless_speechlet_response(playlist_channel_video+" "+playlist_title+" " + strings['notworked'], None, False), sessionAttributes)
@@ -1116,25 +1023,18 @@ def search(event):
         if next_url is None:
             playlist['p'] = i
             next_url, title = get_url_and_title(id)
+            card_title = title
+            channel_name = get_channel_name(id)
     if next_url is False:
         return build_response(build_short_speechlet_response(strings['throttled'], True))
     next_token = convert_dict_to_token(playlist)
-    if version != githubversion:
-        logger.info('Update Available')
-        if playlist_title is None:
-            speech_output = strings['updateavailable']
-            speech_output += strings['playing'] + ' ' + title
-        else:
-            speech_output = strings['updateavailable']
-            speech_output += strings['playing'] + ' ' + playlist_title
-        card_title = "Youtube"
-        return build_response(build_audio_or_video_response(card_title, speech_output, should_end_session, next_url, next_token))
-    elif playlist_title is None:
+    print('CARD TITLE IS', card_title)
+    print('CARD SUBTITLE IS', channel_name)
+    if playlist_title is None:
         speech_output = strings['playing'] + ' ' + title
     else:
         speech_output = strings['playing'] + ' ' + playlist_title
-    card_title = "Youtube"
-    return build_response(build_audio_or_video_response(card_title, speech_output, should_end_session, next_url, next_token))
+    return build_response(build_audio_or_video_response(card_title, channel_name, speech_output, should_end_session, next_url, next_token))
 
 
 def stop():
@@ -1147,7 +1047,7 @@ def nearly_finished(event):
     should_end_session = True
     current_token = event['request']['token']
     skip = 1
-    next_url, next_token, title = get_next_url_and_token(current_token, skip)
+    next_url, next_token, title, channel_name = get_next_url_and_token(current_token, skip)
     if title is None:
         playlist = convert_token_to_dict(next_token)
         if playlist['i'] != 'ShuffleMyPlaylists':
@@ -1182,11 +1082,12 @@ def play_more_like_this(event):
         if next_url is None:
             playlist['p'] = i
             next_url, title = get_url_and_title(id)
+            channel_name = get_channel_name(id)
     if next_url is False:
         return build_response(build_short_speechlet_response(strings['throttled'], True))
     next_token = convert_dict_to_token(playlist)
     speech_output = strings['playing']+' '+title
-    return build_response(build_cardless_audio_speechlet_response(speech_output, should_end_session, next_url, next_token))
+    return build_response(build_audio_speechlet_response(title, channel_name, speech_output, should_end_session, next_url, next_token))
 
 
 def skip_action(event, skip):
@@ -1196,7 +1097,7 @@ def skip_action(event, skip):
     logger.info(event['context'])
     should_end_session = True
     current_token = event['context']['AudioPlayer']['token']
-    next_url, next_token, title = get_next_url_and_token(current_token, skip)
+    next_url, next_token, title, channel_name = get_next_url_and_token(current_token, skip)
     if title is None:
         playlist = convert_token_to_dict(next_token)
         if playlist['i'] != 'ShuffleMyPlaylists':
@@ -1212,7 +1113,7 @@ def skip_action(event, skip):
     if next_url is False:
         return build_response(build_short_speechlet_response(strings['throttled'], True))
     speech_output = strings['playing']+' '+title
-    return build_response(build_cardless_audio_speechlet_response(speech_output, should_end_session, next_url, next_token))
+    return build_response(build_audio_speechlet_response(title, channel_name, speech_output, should_end_session, next_url, next_token))
 
 
 def skip_by(event, direction):
@@ -1299,11 +1200,11 @@ def resume(event, offsetInMilliseconds=None):
     if offsetInMilliseconds is None:
         speech_output = strings['resuming']
         offsetInMilliseconds = event['context']['AudioPlayer']['offsetInMilliseconds']
-    next_url, next_token, title = get_next_url_and_token(current_token, 0)
+    next_url, next_token, title, channel_name = get_next_url_and_token(current_token, 0)
     if title is None:
         speech_output = strings['noresume']
         return build_response(build_short_speechlet_response(speech_output, should_end_session))
-    return build_response(build_cardless_audio_speechlet_response(speech_output, should_end_session, next_url, current_token, offsetInMilliseconds))
+    return build_response(build_audio_speechlet_response(title, channel_name, speech_output, should_end_session, next_url, current_token, offsetInMilliseconds))
 
 
 def change_mode(event, mode, value):
@@ -1317,26 +1218,26 @@ def change_mode(event, mode, value):
     current_token = convert_dict_to_token(playlist)
     speech_output = strings['ok']
     offsetInMilliseconds = event['context']['AudioPlayer']['offsetInMilliseconds']
-    next_url, next_token, title = get_next_url_and_token(current_token, 0)
-    return build_response(build_cardless_audio_speechlet_response(speech_output, should_end_session, next_url, current_token, offsetInMilliseconds))
+    next_url, next_token, title, channel_name = get_next_url_and_token(current_token, 0)
+    return build_response(build_audio_speechlet_response(title, channel_name, speech_output, should_end_session, next_url, current_token, offsetInMilliseconds))
 
 
 def start_over(event):
     current_token = event['context']['AudioPlayer']['token']
     should_end_session = True
-    next_url, next_token, title = get_next_url_and_token(current_token, 0)
+    next_url, next_token, title, channel_name = get_next_url_and_token(current_token, 0)
     if title is None:
         speech_output = strings['novideo']
         return build_response(build_short_speechlet_response(speech_output, should_end_session))
     speech_output = strings['playing']+" " + title
-    return build_response(build_cardless_audio_speechlet_response(speech_output, should_end_session, next_url, next_token))
+    return build_response(build_audio_speechlet_response(title, channel_name, speech_output, should_end_session, next_url, next_token))
 
 
 def say_video_title(event):
     should_end_session = True
     if 'token' in event['context']['AudioPlayer']:
         current_token = event['context']['AudioPlayer']['token']
-        next_url, next_token, title = get_next_url_and_token(current_token, 0)
+        next_url, next_token, title, channel_name = get_next_url_and_token(current_token, 0)
         if title is None:
             speech_output = strings['notitle']
         else:
@@ -1392,6 +1293,7 @@ def get_next_url_and_token(current_token, skip):
     playlist = convert_token_to_dict(current_token)
     next_url = None
     title = None
+    channel_name = None
     shuffle_mode = int(playlist['s'])
     loop_mode = int(playlist['l'])
     next_playing = int(playlist['p'])
@@ -1422,11 +1324,12 @@ def get_next_url_and_token(current_token, skip):
             break
         next_id = playlist[next_key]
         next_url, title = get_url_and_title(next_id)
+        channel_name = get_channel_name(next_id)
         if skip == 0:
             break
     playlist['p'] = str(next_playing)
     next_token = convert_dict_to_token(playlist)
-    return next_url, next_token, title
+    return next_url, next_token, title, channel_name
 
 
 def get_time_zone(event):
@@ -1470,6 +1373,14 @@ def get_title(id, type_='videos'):
     except:
         return None
 
+def get_channel_name(id, type_='videos'):
+    try:
+        params = {'part': 'snippet', 'id': id, 'key': environ['DEVELOPER_KEY']}
+        youtube_search_url = 'https://www.googleapis.com/youtube/v3/'+type_
+        r = requests.get(youtube_search_url, params=params)
+        return r.json()['items'][0]['snippet']['channelTitle']
+    except:
+        return None
 
 def finished(event):
     logger.info('finished')
@@ -1485,21 +1396,10 @@ def failed(event):
     playBehavior = 'REPLACE_ALL'
     current_token = event['request']['token']
     skip = 1
-    next_url, next_token, title = get_next_url_and_token(current_token, skip)
+    next_url, next_token, title, channel_name = get_next_url_and_token(current_token, skip)
     if title is None:
         return do_nothing()
     return build_response(build_audio_enqueue_response(should_end_session, next_url, current_token, next_token, playBehavior))
-
-
-def skill_expired():
-    speech_output = '<speak><voice name="Brian"><prosody rate="medium">'
-    speech_output += 'Hi there, this is the developer. '
-    speech_output += 'If you would like to continue using this skill, please go to https://www.paypal.com/paypalme/wes93 and do an offer. '
-    speech_output += '</prosody></voice></speak> '
-    return build_response(build_cardless_speechlet_response(speech_output, '', True, 'SSML'))
-
-
-
 def test_yt_limit(query=None, relatedToVideoId=None, channelId=None):
     logger.info('video_search_test')
     try:
