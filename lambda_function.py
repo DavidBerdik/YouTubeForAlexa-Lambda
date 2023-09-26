@@ -66,15 +66,17 @@ def build_cardless_speechlet_response(output, reprompt_text, should_end_session,
     }
 
 
-def build_audio_or_video_response(title, channel_name, output, should_end_session, url, token, offsetInMilliseconds=0):
+def build_audio_or_video_response(vid_id, title, channel_name, output, should_end_session, url, token, offsetInMilliseconds=0):
     '''if video_or_audio == [True, 'video']:
         return build_video_response(title, output, url)
     else:
         return build_audio_speechlet_response(title, output, should_end_session, url, token, offsetInMilliseconds=0)'''
-    return build_audio_speechlet_response(title, channel_name, output, should_end_session, url, token, offsetInMilliseconds)
+    return build_audio_speechlet_response(vid_id, title, channel_name, output, should_end_session, url, token, offsetInMilliseconds)
 
 
-def build_audio_speechlet_response(title, channel_name, output, should_end_session, url, token, offsetInMilliseconds=0):
+def build_audio_speechlet_response(vid_id, title, channel_name, output, should_end_session, url, token, offsetInMilliseconds=0):
+    thumb_url, thumb_width, thumb_height = get_thumbnail_info(vid_id)
+    
     return {
         'outputSpeech': {
             'type': 'PlainText',
@@ -96,7 +98,25 @@ def build_audio_speechlet_response(title, channel_name, output, should_end_sessi
                 },
                 'metadata': {
                     'title': title,
-                    'subtitle': channel_name
+                    'subtitle': channel_name,
+                    'art': {
+                        'sources': [
+                            {
+                                'url': thumb_url,
+                                'widthPixels': thumb_width,
+                                'heightPixels': thumb_height
+                            }
+                        ]
+                    },
+                    'backgroundImage': {
+                        'sources': [
+                            {
+                                'url': thumb_url,
+                                'widthPixels': thumb_width,
+                                'heightPixels': thumb_height
+                            }
+                        ]
+                    }
                 }
             }
         }],
@@ -104,7 +124,9 @@ def build_audio_speechlet_response(title, channel_name, output, should_end_sessi
     }
 
 
-def build_audio_enqueue_response(title, channel_name, should_end_session, url, previous_token, next_token, playBehavior='ENQUEUE'):
+def build_audio_enqueue_response(vid_id, title, channel_name, should_end_session, url, previous_token, next_token, playBehavior='ENQUEUE'):
+    thumb_url, thumb_width, thumb_height = get_thumbnail_info(vid_id)
+    
     to_return = {
         'directives': [{
             'type': 'AudioPlayer.Play',
@@ -117,7 +139,25 @@ def build_audio_enqueue_response(title, channel_name, should_end_session, url, p
                 },
                 'metadata': {
                     'title': title,
-                    'subtitle': channel_name
+                    'subtitle': channel_name,
+                    'art': {
+                        'sources': [
+                            {
+                                'url': thumb_url,
+                                'widthPixels': thumb_width,
+                                'heightPixels': thumb_height
+                            }
+                        ]
+                    },
+                    'backgroundImage': {
+                        'sources': [
+                            {
+                                'url': thumb_url,
+                                'widthPixels': thumb_width,
+                                'heightPixels': thumb_height
+                            }
+                        ]
+                    }
                 }
             }
         }],
@@ -1020,6 +1060,7 @@ def search(event):
     next_url = None
     card_title = None
     channel_name = None
+    card_id = None
     for i, id in enumerate(videos):
         #if playlist_channel_video != strings['video'] and (datetime.now() - startTime).total_seconds() > 8:
         #    return build_response(build_cardless_speechlet_response(playlist_channel_video+" "+playlist_title+" " + strings['notworked'], None, False), sessionAttributes)
@@ -1029,16 +1070,15 @@ def search(event):
             next_url, title = get_url_and_title(id)
             card_title = title
             channel_name = get_channel_name(id)
+            card_id = id
     if next_url is False:
         return build_response(build_short_speechlet_response(strings['throttled'], True))
     next_token = convert_dict_to_token(playlist)
-    print('CARD TITLE IS', card_title)
-    print('CARD SUBTITLE IS', channel_name)
     if playlist_title is None:
         speech_output = strings['playing'] + ' ' + title
     else:
         speech_output = strings['playing'] + ' ' + playlist_title
-    return build_response(build_audio_or_video_response(card_title, channel_name, speech_output, should_end_session, next_url, next_token))
+    return build_response(build_audio_or_video_response(card_id, card_title, channel_name, speech_output, should_end_session, next_url, next_token))
 
 
 def stop():
@@ -1051,7 +1091,7 @@ def nearly_finished(event):
     should_end_session = True
     current_token = event['request']['token']
     skip = 1
-    next_url, next_token, title, channel_name = get_next_url_and_token(current_token, skip)
+    next_vid_id, next_url, next_token, title, channel_name = get_next_url_and_token(current_token, skip)
     if title is None:
         playlist = convert_token_to_dict(next_token)
         if playlist['i'] != 'ShuffleMyPlaylists':
@@ -1066,7 +1106,7 @@ def nearly_finished(event):
         next_token = convert_dict_to_token(playlist)
     if next_url is False:
         return do_nothing()
-    return build_response(build_audio_enqueue_response(title, channel_name, should_end_session, next_url, current_token, next_token))
+    return build_response(build_audio_enqueue_response(next_vid_id, title, channel_name, should_end_session, next_url, current_token, next_token))
 
 
 def play_more_like_this(event):
@@ -1092,7 +1132,7 @@ def play_more_like_this(event):
         return build_response(build_short_speechlet_response(strings['throttled'], True))
     next_token = convert_dict_to_token(playlist)
     speech_output = strings['playing']+' '+title
-    return build_response(build_audio_speechlet_response(title, channel_name, speech_output, should_end_session, next_url, next_token))
+    return build_response(build_audio_speechlet_response('this is broken', title, channel_name, speech_output, should_end_session, next_url, next_token))
 
 
 def skip_action(event, skip):
@@ -1102,7 +1142,7 @@ def skip_action(event, skip):
     logger.info(event['context'])
     should_end_session = True
     current_token = event['context']['AudioPlayer']['token']
-    next_url, next_token, title, channel_name = get_next_url_and_token(current_token, skip)
+    next_vid_id, next_url, next_token, title, channel_name = get_next_url_and_token(current_token, skip)
     if title is None:
         playlist = convert_token_to_dict(next_token)
         if playlist['i'] != 'ShuffleMyPlaylists':
@@ -1118,7 +1158,7 @@ def skip_action(event, skip):
     if next_url is False:
         return build_response(build_short_speechlet_response(strings['throttled'], True))
     speech_output = strings['playing']+' '+title
-    return build_response(build_audio_speechlet_response(title, channel_name, speech_output, should_end_session, next_url, next_token))
+    return build_response(build_audio_speechlet_response(next_vid_id, title, channel_name, speech_output, should_end_session, next_url, next_token))
 
 
 def skip_by(event, direction):
@@ -1205,11 +1245,11 @@ def resume(event, offsetInMilliseconds=None):
     if offsetInMilliseconds is None:
         speech_output = strings['resuming']
         offsetInMilliseconds = event['context']['AudioPlayer']['offsetInMilliseconds']
-    next_url, next_token, title, channel_name = get_next_url_and_token(current_token, 0)
+    next_vid_id, next_url, next_token, title, channel_name = get_next_url_and_token(current_token, 0)
     if title is None:
         speech_output = strings['noresume']
         return build_response(build_short_speechlet_response(speech_output, should_end_session))
-    return build_response(build_audio_speechlet_response(title, channel_name, speech_output, should_end_session, next_url, current_token, offsetInMilliseconds))
+    return build_response(build_audio_speechlet_response(next_vid_id, title, channel_name, speech_output, should_end_session, next_url, current_token, offsetInMilliseconds))
 
 
 def change_mode(event, mode, value):
@@ -1223,26 +1263,26 @@ def change_mode(event, mode, value):
     current_token = convert_dict_to_token(playlist)
     speech_output = strings['ok']
     offsetInMilliseconds = event['context']['AudioPlayer']['offsetInMilliseconds']
-    next_url, next_token, title, channel_name = get_next_url_and_token(current_token, 0)
-    return build_response(build_audio_speechlet_response(title, channel_name, speech_output, should_end_session, next_url, current_token, offsetInMilliseconds))
+    next_vid_id, next_url, next_token, title, channel_name = get_next_url_and_token(current_token, 0)
+    return build_response(build_audio_speechlet_response(next_vid_id, title, channel_name, speech_output, should_end_session, next_url, current_token, offsetInMilliseconds))
 
 
 def start_over(event):
     current_token = event['context']['AudioPlayer']['token']
     should_end_session = True
-    next_url, next_token, title, channel_name = get_next_url_and_token(current_token, 0)
+    next_vid_id, next_url, next_token, title, channel_name = get_next_url_and_token(current_token, 0)
     if title is None:
         speech_output = strings['novideo']
         return build_response(build_short_speechlet_response(speech_output, should_end_session))
     speech_output = strings['playing']+" " + title
-    return build_response(build_audio_speechlet_response(title, channel_name, speech_output, should_end_session, next_url, next_token))
+    return build_response(build_audio_speechlet_response(next_vid_id, title, channel_name, speech_output, should_end_session, next_url, next_token))
 
 
 def say_video_title(event):
     should_end_session = True
     if 'token' in event['context']['AudioPlayer']:
         current_token = event['context']['AudioPlayer']['token']
-        next_url, next_token, title, channel_name = get_next_url_and_token(current_token, 0)
+        next_vid_id, next_url, next_token, title, channel_name = get_next_url_and_token(current_token, 0)
         if title is None:
             speech_output = strings['notitle']
         else:
@@ -1299,6 +1339,7 @@ def get_next_url_and_token(current_token, skip):
     next_url = None
     title = None
     channel_name = None
+    vid_id = None
     shuffle_mode = int(playlist['s'])
     loop_mode = int(playlist['l'])
     next_playing = int(playlist['p'])
@@ -1330,11 +1371,12 @@ def get_next_url_and_token(current_token, skip):
         next_id = playlist[next_key]
         next_url, title = get_url_and_title(next_id)
         channel_name = get_channel_name(next_id)
+        vid_id = next_id
         if skip == 0:
             break
     playlist['p'] = str(next_playing)
     next_token = convert_dict_to_token(playlist)
-    return next_url, next_token, title, channel_name
+    return vid_id, next_url, next_token, title, channel_name
 
 
 def get_time_zone(event):
@@ -1387,6 +1429,30 @@ def get_channel_name(id, type_='videos'):
     except:
         return None
 
+def get_thumbnail_info(id, type_='videos'):
+    try:
+        params = {'part': 'snippet', 'id': id, 'key': environ['DEVELOPER_KEY']}
+        youtube_search_url = 'https://www.googleapis.com/youtube/v3/'+type_
+        r = requests.get(youtube_search_url, params=params)
+        
+        thumbnails = r.json()['items'][0]['snippet']['thumbnails']
+        selected_thumb_size = ''
+        if thumbnails.get('maxres'):
+        	selected_thumb_size = 'maxres'
+        elif thumbnails.get('standard'):
+        	selected_thumb_size = 'standard'
+        elif thumbnails.get('high'):
+        	selected_thumb_size = 'high'
+        elif thumbnails.get('medium') in thumbnails:
+        	selected_thumb_size = 'medium'
+        else:
+            selected_thumb_size = 'default'
+        
+        thumbnail = thumbnails[selected_thumb_size]
+        return thumbnail['url'], thumbnail['width'], thumbnail['height']
+    except:
+        return None
+
 def finished(event):
     logger.info('finished')
     token = event['request']['token']
@@ -1401,10 +1467,10 @@ def failed(event):
     playBehavior = 'REPLACE_ALL'
     current_token = event['request']['token']
     skip = 1
-    next_url, next_token, title, channel_name = get_next_url_and_token(current_token, skip)
+    next_vid_id, next_url, next_token, title, channel_name = get_next_url_and_token(current_token, skip)
     if title is None:
         return do_nothing()
-    return build_response(build_audio_enqueue_response(title, channel_name, should_end_session, next_url, current_token, next_token, playBehavior))
+    return build_response(build_audio_enqueue_response(next_vid_id, title, channel_name, should_end_session, next_url, current_token, next_token, playBehavior))
 def test_yt_limit(query=None, relatedToVideoId=None, channelId=None):
     logger.info('video_search_test')
     try:
