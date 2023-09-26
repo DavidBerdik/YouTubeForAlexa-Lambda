@@ -104,7 +104,7 @@ def build_audio_speechlet_response(title, channel_name, output, should_end_sessi
     }
 
 
-def build_audio_enqueue_response(should_end_session, url, previous_token, next_token, playBehavior='ENQUEUE'):
+def build_audio_enqueue_response(title, channel_name, should_end_session, url, previous_token, next_token, playBehavior='ENQUEUE'):
     to_return = {
         'directives': [{
             'type': 'AudioPlayer.Play',
@@ -114,6 +114,10 @@ def build_audio_enqueue_response(should_end_session, url, previous_token, next_t
                     'token': str(next_token),
                     'url': url,
                     'offsetInMilliseconds': 0
+                },
+                'metadata': {
+                    'title': title,
+                    'subtitle': channel_name
                 }
             }
         }],
@@ -1058,10 +1062,11 @@ def nearly_finished(event):
             if next_url is None:
                 playlist['p'] = i
                 next_url, title = get_url_and_title(id)
+                channel_name = get_channel_name(id)
         next_token = convert_dict_to_token(playlist)
     if next_url is False:
         return do_nothing()
-    return build_response(build_audio_enqueue_response(should_end_session, next_url, current_token, next_token))
+    return build_response(build_audio_enqueue_response(title, channel_name, should_end_session, next_url, current_token, next_token))
 
 
 def play_more_like_this(event):
@@ -1399,7 +1404,7 @@ def failed(event):
     next_url, next_token, title, channel_name = get_next_url_and_token(current_token, skip)
     if title is None:
         return do_nothing()
-    return build_response(build_audio_enqueue_response(should_end_session, next_url, current_token, next_token, playBehavior))
+    return build_response(build_audio_enqueue_response(title, channel_name, should_end_session, next_url, current_token, next_token, playBehavior))
 def test_yt_limit(query=None, relatedToVideoId=None, channelId=None):
     logger.info('video_search_test')
     try:
